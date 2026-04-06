@@ -12,22 +12,36 @@ interface CartModalProps {
   items: CartItem[];
   onRemove: (id: number) => void;
   onUpdateQuantity: (id: number, delta: number) => void;
+  onOpenAuth: () => void;
 }
 
 type ViewState = 'cart' | 'checkout' | 'success';
 
-const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartModalProps) => {
+const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenAuth }: CartModalProps) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoggedIn } = useAuth();
   const { clearCart } = useCart();
   const [view, setView] = useState<ViewState>('cart');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
+    email: '',
     phone: '',
     address: '',
   });
   const [orderId, setOrderId] = useState('');
+
+  // Tự động điền thông tin nếu đã đăng nhập
+  useEffect(() => {
+    if (isLoggedIn && user && isOpen) {
+      console.log("Auto-filling form with user data:", user);
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.fullName || prev.fullName,
+        email: user.email || prev.email
+      }));
+    }
+  }, [isLoggedIn, user, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -48,6 +62,12 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
   };
 
   const handleCheckout = () => {
+    if (!isLoggedIn) {
+      alert("Vui lòng đăng nhập để tiến hành đặt hàng!");
+      onClose();
+      onOpenAuth();
+      return;
+    }
     if (items.length > 0) setView('checkout');
   };
 
@@ -58,23 +78,30 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
 
     setIsSubmitting(true);
     
-    // Gom dữ liệu: Chỉ lấy 5 thông tin khách yêu cầu
+    // Gom dữ liệu: Chỉ lấy các thông tin khách yêu cầu
     const orderData = {
       action: "checkout",
       fullName: formData.fullName,
+      email: formData.email,
       phone: formData.phone,
       address: formData.address,
       cartDetails: items.map(item => `${item.name} (x${item.quantity})`).join(', '),
       totalAmount: total
     };
 
+    console.log("Dữ liệu gửi đi:", orderData);
+
+    if (!orderData.email) {
+      console.warn("Cảnh báo: Email đang trống!");
+    }
+
     try {
-      console.log("Đang gửi đơn hàng...");
+      console.log("Đang gửi đơn hàng tới Apps Script...");
 
       // Gửi API với định dạng text/plain để vượt qua CORS của Google Apps Script
-      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxmtCXd_mzfQm9KWL6eZMEIgOfZZNaIA3PX0u8YUC0igPDkO5Eduh5aqBn_vnABC0OBfw/exec";
+      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzqhG0QtKzhEbJ57MruV9Vuy-sSn8w5gMtaBXZiZsSCHtpfsCbevEtJqihZXANYQ3Otlw/exec";
       
-      await fetch(WEB_APP_URL, {
+      const response = await fetch(WEB_APP_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: {
@@ -82,6 +109,8 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
         },
         body: JSON.stringify(orderData),
       });
+
+      console.log("Đã gọi fetch xong (no-cors mode)");
 
       // Xử lý sau khi gửi
       const newOrderId = 'EH' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
@@ -217,6 +246,18 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
                             />
                           </div>
                           <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Email liên kết</label>
+                            <input
+                              required
+                              type="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              placeholder="Nhập email của bạn"
+                              className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold"
+                              disabled={isLoggedIn}
+                            />
+                          </div>
+                          <div>
                             <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Số điện thoại</label>
                             <input
                               required
@@ -264,10 +305,17 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
                         <span>Phí vận chuyển</span>
                         <span className="text-green-600">Miễn phí</span>
                       </div>
-                      <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
-                        <span className="text-sm font-black uppercase italic">Tổng thanh toán</span>
-                        <span className="text-lg font-black">{formatPrice(total)}</span>
+                      <div className="flex justify-between text-xs font-bold text-red-500 uppercase tracking-wider">
+                        <span>Tiền đặt cọc (Bắt buộc)</span>
+                        <span>{formatPrice(5000)}</span>
                       </div>
+                      <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                        <span className="text-sm font-black uppercase italic text-gray-400">Tổng thanh toán sau khi trừ cọc</span>
+                        <span className="text-lg font-black">{formatPrice(total - 5000 > 0 ? total - 5000 : 0)}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 font-medium italic mt-2">
+                        * Quý khách vui lòng đặt cọc 5.000đ để xác nhận đơn hàng. Số tiền này sẽ được trừ vào tổng hóa đơn khi nhận hàng.
+                      </p>
                     </div>
                   </motion.div>
                 )}
@@ -291,13 +339,14 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
 
                     <div className="bg-gray-50 rounded-2xl p-6 space-y-6 border border-gray-100">
                       <div className="space-y-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Quét mã QR để thanh toán</p>
-                        <div className="w-48 h-48 bg-white mx-auto p-4 rounded-xl shadow-inner border border-gray-100 flex items-center justify-center">
-                          {/* Placeholder for QR Code */}
-                          <div className="w-full h-full bg-gray-50 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-gray-200">
-                            <QrCode size={64} className="text-gray-300 mb-2" />
-                            <span className="text-[8px] font-black uppercase text-gray-400 tracking-widest">VietQR Placeholder</span>
-                          </div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Quét mã QR để đặt cọc (5.000đ)</p>
+                        <div className="w-56 h-56 bg-white mx-auto p-4 rounded-xl shadow-xl border border-gray-100 flex items-center justify-center overflow-hidden">
+                          <img 
+                            src={`https://qr.sepay.vn/img?acc=0399182294&bank=MBBank&amount=5000&des=ELITEHOOPS%20${orderId}&template=compact`}
+                            alt="QR Code Thanh Toán"
+                            className="w-full h-full object-contain"
+                            referrerPolicy="no-referrer"
+                          />
                         </div>
                       </div>
 
@@ -310,15 +359,35 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartM
                           <div>
                             <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Số tài khoản</p>
                             <div className="flex justify-between items-center">
-                              <p className="text-sm font-black tracking-widest">0123456789999</p>
-                              <button className="text-gray-400 hover:text-black"><Copy size={14} /></button>
+                              <p className="text-sm font-black tracking-widest">0399182294</p>
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText('0399182294');
+                                  alert('Đã sao chép số tài khoản!');
+                                }}
+                                className="text-gray-400 hover:text-black"
+                              >
+                                <Copy size={14} />
+                              </button>
                             </div>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Số tiền đặt cọc</p>
+                            <p className="text-sm font-black text-red-600">5.000đ</p>
                           </div>
                           <div>
                             <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Nội dung chuyển khoản</p>
                             <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border border-dashed border-gray-200">
                               <p className="text-sm font-black text-black">ELITEHOOPS {orderId}</p>
-                              <button className="text-gray-400 hover:text-black"><Copy size={14} /></button>
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`ELITEHOOPS ${orderId}`);
+                                  alert('Đã sao chép nội dung!');
+                                }}
+                                className="text-gray-400 hover:text-black"
+                              >
+                                <Copy size={14} />
+                              </button>
                             </div>
                           </div>
                         </div>

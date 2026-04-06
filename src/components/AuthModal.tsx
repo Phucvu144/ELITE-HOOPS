@@ -57,7 +57,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
         if (mode === 'register') {
           // Gọi API Google Apps Script để lưu thông tin đăng ký
-          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxmtCXd_mzfQm9KWL6eZMEIgOfZZNaIA3PX0u8YUC0igPDkO5Eduh5aqBn_vnABC0OBfw/exec";
+          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzqhG0QtKzhEbJ57MruV9Vuy-sSn8w5gMtaBXZiZsSCHtpfsCbevEtJqihZXANYQ3Otlw/exec";
           
           const registerData = {
             action: "register",

@@ -381,6 +381,7 @@ function AppContent() {
         items={cartItems}
         onRemove={removeFromCart}
         onUpdateQuantity={updateQuantity}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
       <AuthModal
