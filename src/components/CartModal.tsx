@@ -1,0 +1,381 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowLeft, CheckCircle2, QrCode, Copy, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CartItem } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+
+interface CartModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  items: CartItem[];
+  onRemove: (id: number) => void;
+  onUpdateQuantity: (id: number, delta: number) => void;
+}
+
+type ViewState = 'cart' | 'checkout' | 'success';
+
+const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity }: CartModalProps) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { clearCart } = useCart();
+  const [view, setView] = useState<ViewState>('cart');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    phone: '',
+    address: '',
+  });
+  const [orderId, setOrderId] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setTimeout(() => {
+        setView('cart');
+        setIsSubmitting(false);
+      }, 300); // Reset view after closing animation
+    }
+  }, [isOpen]);
+
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(price);
+  };
+
+  const handleCheckout = () => {
+    if (items.length > 0) setView('checkout');
+  };
+
+  const processCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    
+    // Gom dữ liệu: Chỉ lấy 5 thông tin khách yêu cầu
+    const orderData = {
+      action: "checkout",
+      fullName: formData.fullName,
+      phone: formData.phone,
+      address: formData.address,
+      cartDetails: items.map(item => `${item.name} (x${item.quantity})`).join(', '),
+      totalAmount: total
+    };
+
+    try {
+      console.log("Đang gửi đơn hàng...");
+
+      // Gửi API với định dạng text/plain để vượt qua CORS của Google Apps Script
+      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxmtCXd_mzfQm9KWL6eZMEIgOfZZNaIA3PX0u8YUC0igPDkO5Eduh5aqBn_vnABC0OBfw/exec";
+      
+      await fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'text/plain',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      // Xử lý sau khi gửi
+      const newOrderId = 'EH' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+      setOrderId(newOrderId);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      setView('success');
+      clearCart(); // Xóa giỏ hàng
+    } catch (error) {
+      console.error("Lỗi:", error);
+      alert("Lỗi gửi đơn hàng. Vui lòng thử lại!");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFinish = () => {
+    onClose();
+    navigate('/');
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/40 z-[60] backdrop-blur-sm"
+          />
+
+          {/* Drawer */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col"
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+              <div className="flex items-center space-x-3">
+                {view === 'checkout' && (
+                  <button onClick={() => setView('cart')} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
+                <h2 className="text-xl font-black uppercase italic tracking-tighter">
+                  {view === 'cart' ? 'Giỏ hàng của bạn' : view === 'checkout' ? 'Thông tin thanh toán' : 'Đặt hàng thành công'}
+                </h2>
+              </div>
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content Container */}
+            <div className="flex-grow overflow-y-auto">
+              <AnimatePresence mode="wait">
+                {view === 'cart' && (
+                  <motion.div
+                    key="cart-view"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="p-6 space-y-6"
+                  >
+                    {items.length === 0 ? (
+                      <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                          <ShoppingBag size={32} className="text-gray-400" />
+                        </div>
+                        <p className="text-gray-500 font-medium">Giỏ hàng đang trống</p>
+                        <button onClick={onClose} className="text-sm font-bold underline uppercase tracking-widest">
+                          Tiếp tục mua sắm
+                        </button>
+                      </div>
+                    ) : (
+                      items.map((item) => (
+                        <div key={item.id} className="flex space-x-4">
+                          <div className="w-24 h-24 bg-gray-100 rounded-sm overflow-hidden flex-shrink-0">
+                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                          <div className="flex-grow flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between items-start">
+                                <h3 className="text-sm font-bold text-gray-900 leading-tight pr-4">{item.name}</h3>
+                                <button onClick={() => onRemove(item.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                              <p className="text-[10px] text-gray-500 uppercase font-bold mt-1">{item.brand} Basketball</p>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center border border-gray-200 rounded-full px-2 py-1">
+                                <button onClick={() => onUpdateQuantity(item.id, -1)} className="p-1 hover:text-black text-gray-400"><Minus size={14} /></button>
+                                <span className="mx-3 text-xs font-bold">{item.quantity}</span>
+                                <button onClick={() => onUpdateQuantity(item.id, 1)} className="p-1 hover:text-black text-gray-400"><Plus size={14} /></button>
+                              </div>
+                              <p className="text-sm font-black text-gray-900">{formatPrice(item.price * item.quantity)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </motion.div>
+                )}
+
+                {view === 'checkout' && (
+                  <motion.div
+                    key="checkout-view"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="p-6 space-y-8"
+                  >
+                    <form id="checkout-form" onSubmit={processCheckout} className="space-y-6">
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Thông tin giao hàng</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Họ và tên</label>
+                            <input
+                              required
+                              type="text"
+                              value={formData.fullName}
+                              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                              placeholder="Nhập họ tên của bạn"
+                              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Số điện thoại</label>
+                            <input
+                              required
+                              type="tel"
+                              value={formData.phone}
+                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                              placeholder="Nhập số điện thoại"
+                              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Địa chỉ nhận hàng</label>
+                            <textarea
+                              required
+                              rows={3}
+                              value={formData.address}
+                              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                              placeholder="Địa chỉ chi tiết (Số nhà, tên đường, phường/xã...)"
+                              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Phương thức thanh toán</h3>
+                        <div className="p-4 border-2 border-black rounded-xl bg-gray-50 flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center text-white">
+                            <QrCode size={24} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black uppercase italic">Chuyển khoản QR Code</p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Xác nhận nhanh chóng</p>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+
+                    <div className="bg-gray-50 p-4 rounded-xl space-y-2">
+                      <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <span>Tạm tính</span>
+                        <span>{formatPrice(total)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <span>Phí vận chuyển</span>
+                        <span className="text-green-600">Miễn phí</span>
+                      </div>
+                      <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                        <span className="text-sm font-black uppercase italic">Tổng thanh toán</span>
+                        <span className="text-lg font-black">{formatPrice(total)}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {view === 'success' && (
+                  <motion.div
+                    key="success-view"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-6 text-center space-y-8"
+                  >
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                        <CheckCircle2 size={48} />
+                      </div>
+                      <h3 className="text-2xl font-black uppercase italic tracking-tighter">Đơn hàng đã được gửi!</h3>
+                      <p className="text-sm text-gray-500 font-medium max-w-xs mx-auto">
+                        Cảm ơn <span className="text-black font-bold">{formData.fullName}</span>, đơn hàng <span className="text-black font-bold">#{orderId}</span> đang chờ thanh toán.
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-2xl p-6 space-y-6 border border-gray-100">
+                      <div className="space-y-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Quét mã QR để thanh toán</p>
+                        <div className="w-48 h-48 bg-white mx-auto p-4 rounded-xl shadow-inner border border-gray-100 flex items-center justify-center">
+                          {/* Placeholder for QR Code */}
+                          <div className="w-full h-full bg-gray-50 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-gray-200">
+                            <QrCode size={64} className="text-gray-300 mb-2" />
+                            <span className="text-[8px] font-black uppercase text-gray-400 tracking-widest">VietQR Placeholder</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 text-left">
+                        <div className="p-4 bg-white rounded-xl border border-gray-100 space-y-3">
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Ngân hàng</p>
+                            <p className="text-sm font-black">MB BANK (Ngân hàng Quân Đội)</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Số tài khoản</p>
+                            <div className="flex justify-between items-center">
+                              <p className="text-sm font-black tracking-widest">0123456789999</p>
+                              <button className="text-gray-400 hover:text-black"><Copy size={14} /></button>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Nội dung chuyển khoản</p>
+                            <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border border-dashed border-gray-200">
+                              <p className="text-sm font-black text-black">ELITEHOOPS {orderId}</p>
+                              <button className="text-gray-400 hover:text-black"><Copy size={14} /></button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleFinish}
+                      className="w-full bg-black text-white py-4 rounded-full font-black uppercase tracking-widest text-sm hover:bg-gray-800 transition-all"
+                    >
+                      Hoàn tất & Quay lại trang chủ
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Sticky Footer for Cart/Checkout Actions */}
+            {items.length > 0 && view !== 'success' && (
+              <div className="p-6 border-t border-gray-100 bg-white space-y-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+                {view === 'cart' ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">Tổng cộng</span>
+                      <span className="text-xl font-black text-gray-900">{formatPrice(total)}</span>
+                    </div>
+                    <button
+                      onClick={handleCheckout}
+                      className="w-full bg-black text-white py-4 rounded-full font-black uppercase tracking-widest text-sm hover:bg-gray-800 transition-all transform active:scale-95 shadow-xl"
+                    >
+                      Thanh toán ngay
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    form="checkout-form"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-black text-white py-4 rounded-full font-black uppercase tracking-widest text-sm hover:bg-gray-800 transition-all transform active:scale-95 shadow-xl disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        <span>Đang gửi đơn hàng...</span>
+                      </>
+                    ) : (
+                      <span>Gửi & Thanh toán {formatPrice(total)}</span>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export default CartModal;

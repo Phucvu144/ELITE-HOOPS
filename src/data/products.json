@@ -1,0 +1,110 @@
+[
+  {
+    "id": 1,
+    "name": "Nike LeBron 21 'Dragon Pearl'",
+    "brand": "Nike",
+    "price": 5899000,
+    "image_url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop",
+    "description": "Designed for the next generation of play, with a low-profile design and premium materials.",
+    "sizes": [40, 41, 42, 43, 44, 45, 46]
+  },
+  {
+    "id": 2,
+    "name": "Nike KD16 'Aunt Pearl'",
+    "brand": "Nike",
+    "price": 4699000,
+    "image_url": "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?q=80&w=1000&auto=format&fit=crop",
+    "description": "Lightweight and low to the ground, the KD16 is built for the modern game.",
+    "sizes": [39, 40, 41, 42, 43, 44, 45]
+  },
+  {
+    "id": 3,
+    "name": "Nike Ja 1 'Day One'",
+    "brand": "Nike",
+    "price": 3199000,
+    "image_url": "https://images.unsplash.com/photo-1511886929837-354d827aae26?q=80&w=1000&auto=format&fit=crop",
+    "description": "Ja Morant's first signature shoe, built for explosive speed and verticality.",
+    "sizes": [38, 39, 40, 41, 42, 43, 44]
+  },
+  {
+    "id": 4,
+    "name": "Air Jordan 38 'FIBA'",
+    "brand": "Jordan",
+    "price": 5299000,
+    "image_url": "https://images.unsplash.com/photo-1515444744559-7be63e1600de?q=80&w=1000&auto=format&fit=crop",
+    "description": "The latest in the Jordan line, featuring X-Plate technology for ultimate stability.",
+    "sizes": [40, 41, 42, 43, 44, 45]
+  },
+  {
+    "id": 5,
+    "name": "Jordan Tatum 1 'St. Louis'",
+    "brand": "Jordan",
+    "price": 3599000,
+    "image_url": "https://images.unsplash.com/photo-1552346154-21d32810aba3?q=80&w=1000&auto=format&fit=crop",
+    "description": "The lightest performance shoe in the Jordan Brand line this season.",
+    "sizes": [39, 40, 41, 42, 43, 44]
+  },
+  {
+    "id": 6,
+    "name": "Nike Freak 5 'Made in Sepolia'",
+    "brand": "Nike",
+    "price": 3899000,
+    "image_url": "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?q=80&w=1000&auto=format&fit=crop",
+    "description": "Giannis Antetokounmpo's signature shoe, designed for his unique style of play.",
+    "sizes": [41, 42, 43, 44, 45, 46]
+  },
+  {
+    "id": 7,
+    "name": "Adidas Anthony Edwards 1 'With Love'",
+    "brand": "Adidas",
+    "price": 3200000,
+    "image_url": "https://images.unsplash.com/photo-1515444744559-7be63e1600de?q=80&w=1000&auto=format&fit=crop",
+    "description": "The debut signature shoe for Anthony Edwards, built for explosive speed.",
+    "sizes": [40, 41, 42, 43, 44]
+  },
+  {
+    "id": 8,
+    "name": "Adidas Dame 8 EXTPLY",
+    "brand": "Adidas",
+    "price": 2900000,
+    "image_url": "https://images.unsplash.com/photo-1552346154-21d32810aba3?q=80&w=1000&auto=format&fit=crop",
+    "description": "Damian Lillard's signature shoe with Bounce Pro cushioning.",
+    "sizes": [39, 40, 41, 42, 43]
+  },
+  {
+    "id": 9,
+    "name": "Jordan Luka 2 'Nebula'",
+    "brand": "Jordan",
+    "price": 3699000,
+    "image_url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop",
+    "description": "Luka Doncic's second signature shoe, designed for step-backs and control.",
+    "sizes": [40, 41, 42, 43, 44, 45]
+  },
+  {
+    "id": 10,
+    "name": "Jordan Luka 2 'Nebula'",
+    "brand": "Jordan",
+    "price": 3699000,
+    "image_url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop",
+    "description": "Luka Doncic's second signature shoe, designed for step-backs and control.",
+    "sizes": [40, 41, 42, 43, 44, 45]
+  },
+  {
+    "id": 11,
+    "name": "Jordan Luka 2 'Nebula'",
+    "brand": "Jordan",
+    "price": 3699000,
+    "image_url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop",
+    "description": "Luka Doncic's second signature shoe, designed for step-backs and control.",
+    "sizes": [40, 41, 42, 43, 44, 45]
+  },
+    {
+    "id": 12,
+    "name": "Giày Nike Kobe 8 Protro 'Lakers Away'",
+    "brand": "Nike",
+    "price": 9290000,
+    "image_url": "https://sneakerdaily.vn/wp-content/uploads/2024/10/Giay-Nike-Kobe-8-Protro-Lakers-Away-HF9550-001.jpg",
+    "description": "Ja Morant's first signature shoe, built for explosive speed and verticality.",
+    "sizes": [38, 39, 40, 41, 42, 43, 44]
+  }
+]
