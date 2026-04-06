@@ -137,17 +137,28 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
     try {
       console.log("Đang gửi đơn hàng tới Apps Script...");
       
-      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwieBgJQKW63_yw8yIKqXPS1ulsQp0M6T4PrbI3EkzxlOU5HqZ6ycNzEPSwzgu5KF0jqQ/exec";
+      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxv_hhtJCCo0cmIa49Uwh6fhsJRJDTy7sR7JaGlW90d1IJ0b1aFBasJFiRHncS7N4dmBQ/exec";
       console.log("URL mục tiêu:", WEB_APP_URL);
 
-      // Gửi API với định dạng text/plain để vượt qua CORS của Google Apps Script
-      const response = await fetch(WEB_APP_URL, {
+      // Chuyển đổi dữ liệu sang URLSearchParams để gửi dạng form-urlencoded
+      const params = new URLSearchParams();
+      params.append("action", "checkout");
+      params.append("fullName", orderData.fullName);
+      params.append("email", orderData.email);
+      params.append("phone", orderData.phone);
+      params.append("address", orderData.address);
+      params.append("cartDetails", orderData.cartDetails);
+      params.append("totalAmount", orderData.totalAmount.toString());
+      params.append("orderId", orderData.orderId);
+
+      // Gửi API với định dạng application/x-www-form-urlencoded
+      await fetch(WEB_APP_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: {
-          'Content-Type': 'text/plain',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify(orderData),
+        body: params.toString(),
       });
 
       // Lưu ý: Với mode 'no-cors', chúng ta không đọc được response.ok hay response.json()

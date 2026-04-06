@@ -61,24 +61,27 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         };
 
         if (mode === 'register') {
-          // Gọi API Google Apps Script để lưu thông tin đăng ký
-          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwieBgJQKW63_yw8yIKqXPS1ulsQp0M6T4PrbI3EkzxlOU5HqZ6ycNzEPSwzgu5KF0jqQ/exec";
+          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxv_hhtJCCo0cmIa49Uwh6fhsJRJDTy7sR7JaGlW90d1IJ0b1aFBasJFiRHncS7N4dmBQ/exec";
+          const cleanEmail = formData.email.toLowerCase().trim();
           
-          const registerData = {
-            action: "register",
-            fullName: formData.fullName,
-            email: formData.email,
-            password: formData.password
-          };
+          const params = new URLSearchParams();
+          params.append("action", "register");
+          params.append("fullName", formData.fullName);
+          params.append("email", cleanEmail);
+          params.append("password", formData.password);
 
-          await fetch(WEB_APP_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: {
-              "Content-Type": "text/plain",
-            },
-            body: JSON.stringify(registerData),
-          });
+          try {
+            await fetch(WEB_APP_URL, {
+              method: "POST",
+              mode: "no-cors",
+              body: params.toString(),
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+            });
+          } catch (fetchError) {
+            console.log("Fetch error:", fetchError);
+          }
 
           console.log("Đã gửi yêu cầu đăng ký tới Google Sheets");
           login(userData);
