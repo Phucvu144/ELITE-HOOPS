@@ -29,6 +29,7 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
     phone: '',
     address: '',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [orderId, setOrderId] = useState('');
 
   // Tự động điền thông tin nếu đã đăng nhập
@@ -76,8 +77,45 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
     
     if (isSubmitting) return;
 
+    // Validation
+    const errors: Record<string, string> = {};
+    
+    // Họ tên: Chỉ chữ cái và khoảng trắng
+    const nameRegex = /^[a-zA-ZÀ-ỹ\s]+$/;
+    if (!nameRegex.test(formData.fullName)) {
+      errors.fullName = "Họ tên chỉ được chứa chữ cái và khoảng trắng";
+    }
+
+    // Email: Phải là @gmail.com
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    if (!emailRegex.test(formData.email)) {
+      errors.email = "Email phải có định dạng @gmail.com (ví dụ: ten@gmail.com)";
+    }
+
+    // Số điện thoại: 10 số, bắt đầu bằng 0
+    const phoneRegex = /^0\d{9}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      errors.phone = "Số điện thoại phải có đúng 10 chữ số và bắt đầu bằng số 0";
+    }
+
+    // Địa chỉ: Chỉ chữ cái và số, không ký tự đặc biệt
+    const addressRegex = /^[a-zA-Z0-9À-ỹ\s]+$/;
+    if (!addressRegex.test(formData.address)) {
+      errors.address = "Địa chỉ chỉ được chứa chữ cái và số, không có ký tự đặc biệt";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
     setIsSubmitting(true);
     
+    // Tạo mã đơn hàng trước khi gửi
+    const newOrderId = 'EH' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    setOrderId(newOrderId);
+
     // Gom dữ liệu: Chỉ lấy các thông tin khách yêu cầu
     const orderData = {
       action: "checkout",
@@ -86,7 +124,8 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
       phone: formData.phone,
       address: formData.address,
       cartDetails: items.map(item => `${item.name} (x${item.quantity})`).join(', '),
-      totalAmount: total
+      totalAmount: total,
+      orderId: newOrderId // Gửi mã đơn hàng sang Sheet
     };
 
     console.log("Dữ liệu gửi đi:", orderData);
@@ -97,10 +136,11 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
 
     try {
       console.log("Đang gửi đơn hàng tới Apps Script...");
+      
+      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwieBgJQKW63_yw8yIKqXPS1ulsQp0M6T4PrbI3EkzxlOU5HqZ6ycNzEPSwzgu5KF0jqQ/exec";
+      console.log("URL mục tiêu:", WEB_APP_URL);
 
       // Gửi API với định dạng text/plain để vượt qua CORS của Google Apps Script
-      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzqhG0QtKzhEbJ57MruV9Vuy-sSn8w5gMtaBXZiZsSCHtpfsCbevEtJqihZXANYQ3Otlw/exec";
-      
       const response = await fetch(WEB_APP_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -110,18 +150,18 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
         body: JSON.stringify(orderData),
       });
 
-      console.log("Đã gọi fetch xong (no-cors mode)");
+      // Lưu ý: Với mode 'no-cors', chúng ta không đọc được response.ok hay response.json()
+      // Nhưng nếu fetch không nhảy vào catch, nghĩa là request đã được gửi đi thành công.
+      console.log("Yêu cầu đã được gửi đi thành công (no-cors mode).");
 
-      // Xử lý sau khi gửi
-      const newOrderId = 'EH' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-      setOrderId(newOrderId);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Giả lập đợi một chút để tạo cảm giác xử lý
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       setView('success');
-      clearCart(); // Xóa giỏ hàng
+      clearCart(); 
     } catch (error) {
-      console.error("Lỗi:", error);
-      alert("Lỗi gửi đơn hàng. Vui lòng thử lại!");
+      console.error("Lỗi kết nối khi gửi đơn hàng:", error);
+      alert("Không thể kết nối với hệ thống xử lý đơn hàng. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.");
     } finally {
       setIsSubmitting(false);
     }
@@ -240,10 +280,14 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
                               required
                               type="text"
                               value={formData.fullName}
-                              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                              onChange={(e) => {
+                                setFormData({ ...formData, fullName: e.target.value });
+                                if (formErrors.fullName) setFormErrors({ ...formErrors, fullName: '' });
+                              }}
                               placeholder="Nhập họ tên của bạn"
-                              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold"
+                              className={`w-full px-4 py-3 bg-gray-50 border-2 ${formErrors.fullName ? 'border-red-500' : 'border-transparent'} rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold`}
                             />
+                            {formErrors.fullName && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{formErrors.fullName}</p>}
                           </div>
                           <div>
                             <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Email liên kết</label>
@@ -251,11 +295,15 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
                               required
                               type="email"
                               value={formData.email}
-                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              onChange={(e) => {
+                                setFormData({ ...formData, email: e.target.value });
+                                if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
+                              }}
                               placeholder="Nhập email của bạn"
-                              className="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold"
+                              className={`w-full px-4 py-3 bg-gray-100 border-2 ${formErrors.email ? 'border-red-500' : 'border-transparent'} rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold`}
                               disabled={isLoggedIn}
                             />
+                            {formErrors.email && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{formErrors.email}</p>}
                           </div>
                           <div>
                             <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Số điện thoại</label>
@@ -263,10 +311,14 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
                               required
                               type="tel"
                               value={formData.phone}
-                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                              onChange={(e) => {
+                                setFormData({ ...formData, phone: e.target.value });
+                                if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' });
+                              }}
                               placeholder="Nhập số điện thoại"
-                              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold"
+                              className={`w-full px-4 py-3 bg-gray-50 border-2 ${formErrors.phone ? 'border-red-500' : 'border-transparent'} rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold`}
                             />
+                            {formErrors.phone && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{formErrors.phone}</p>}
                           </div>
                           <div>
                             <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1 ml-1">Địa chỉ nhận hàng</label>
@@ -274,10 +326,14 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
                               required
                               rows={3}
                               value={formData.address}
-                              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                              onChange={(e) => {
+                                setFormData({ ...formData, address: e.target.value });
+                                if (formErrors.address) setFormErrors({ ...formErrors, address: '' });
+                              }}
                               placeholder="Địa chỉ chi tiết (Số nhà, tên đường, phường/xã...)"
-                              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold resize-none"
+                              className={`w-full px-4 py-3 bg-gray-50 border-2 ${formErrors.address ? 'border-red-500' : 'border-transparent'} rounded-xl focus:border-black focus:bg-white transition-all outline-none text-sm font-bold resize-none`}
                             />
+                            {formErrors.address && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{formErrors.address}</p>}
                           </div>
                         </div>
                       </div>

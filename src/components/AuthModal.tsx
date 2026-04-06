@@ -24,19 +24,24 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: { [key: string]: string } = {};
 
-    if (mode === 'register' && !formData.fullName.trim()) {
-      newErrors.fullName = 'Vui lòng nhập họ tên';
+    if (mode === 'register') {
+      const nameRegex = /^[a-zA-ZÀ-ỹ\s]+$/;
+      if (!formData.fullName.trim()) {
+        newErrors.fullName = 'Vui lòng nhập họ tên';
+      } else if (!nameRegex.test(formData.fullName)) {
+        newErrors.fullName = 'Họ tên chỉ được chứa chữ cái và khoảng trắng';
+      }
     }
 
     if (!validateEmail(formData.email)) {
-      newErrors.email = 'Email không đúng định dạng';
+      newErrors.email = 'Email phải có định dạng @gmail.com';
     }
 
     if (formData.password.length < 6) {
@@ -57,7 +62,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
         if (mode === 'register') {
           // Gọi API Google Apps Script để lưu thông tin đăng ký
-          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzqhG0QtKzhEbJ57MruV9Vuy-sSn8w5gMtaBXZiZsSCHtpfsCbevEtJqihZXANYQ3Otlw/exec";
+          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwieBgJQKW63_yw8yIKqXPS1ulsQp0M6T4PrbI3EkzxlOU5HqZ6ycNzEPSwzgu5KF0jqQ/exec";
           
           const registerData = {
             action: "register",
