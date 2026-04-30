@@ -11,7 +11,6 @@ interface AuthModalProps {
 type AuthMode = 'login' | 'register';
 
 const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
-  const { login } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,51 +53,67 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
       setIsSubmitting(true);
       
       try {
-        const userData = {
-          id: Math.random().toString(36).substr(2, 9),
-          fullName: mode === 'register' ? formData.fullName : formData.email.split('@')[0],
-          email: formData.email
-        };
+        const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+        const { auth, db } = await import('../lib/firebase');
 
         if (mode === 'register') {
-          const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxv_hhtJCCo0cmIa49Uwh6fhsJRJDTy7sR7JaGlW90d1IJ0b1aFBasJFiRHncS7N4dmBQ/exec";
-          const cleanEmail = formData.email.toLowerCase().trim();
-          
-          const params = new URLSearchParams();
-          params.append("action", "register");
-          params.append("fullName", formData.fullName);
-          params.append("email", cleanEmail);
-          params.append("password", formData.password);
+          // Firebase Registration
+          const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+          const firebaseUser = userCredential.user;
 
+          // Update Profile
+          await updateProfile(firebaseUser, { displayName: formData.fullName });
+
+          // Save to Firestore
+          await setDoc(doc(db, 'users', firebaseUser.uid), {
+            fullName: formData.fullName,
+            email: formData.email.toLowerCase().trim(),
+            createdAt: serverTimestamp()
+          });
+
+          // Sync to SQL Server
           try {
-            await fetch(WEB_APP_URL, {
-              method: "POST",
-              mode: "no-cors",
-              body: params.toString(),
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
+            const syncResponse = await fetch('/api/sync-register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fullName: formData.fullName,
+                email: formData.email.toLowerCase().trim(),
+                password: formData.password
+              })
             });
-          } catch (fetchError) {
-            console.log("Fetch error:", fetchError);
+            const syncResult = await syncResponse.json();
+            if (!syncResult.success) {
+              console.warn("SQL Sync warning:", syncResult.message);
+              // We don't block the user if SQL fails but Firebase succeeded
+            }
+          } catch (syncErr) {
+            console.error("SQL Sync error:", syncErr);
           }
 
-          console.log("Đã gửi yêu cầu đăng ký tới Google Sheets");
-          login(userData);
           alert("Đăng ký thành công! Chào mừng bạn đến với Elite Hoops.");
         } else {
-          // Logic đăng nhập (giả lập)
-          console.log("Đăng nhập thành công:", formData.email);
-          login(userData);
+          // Firebase Login
+          await signInWithEmailAndPassword(auth, formData.email, formData.password);
           alert("Đăng nhập thành công!");
         }
         
         onClose();
-        // Reset form
         setFormData({ fullName: '', email: '', password: '' });
-      } catch (error) {
-        console.error("Lỗi khi xử lý:", error);
-        alert("Có lỗi xảy ra. Vui lòng thử lại sau.");
+      } catch (error: any) {
+        console.error("Auth error:", error);
+        let message = "Có lỗi xảy ra. Vui lòng thử lại sau.";
+        
+        if (error.code === 'auth/email-already-in-use') {
+          message = "Email này đã được sử dụng cho tài khoản khác.";
+        } else if (error.code === 'auth/invalid-credential') {
+          message = "Email hoặc mật khẩu không chính xác.";
+        } else if (error.code === 'auth/too-many-requests') {
+          message = "Tài khoản bị tạm khóa do nhập sai nhiều lần. Thử lại sau.";
+        }
+        
+        alert(message);
       } finally {
         setIsSubmitting(false);
       }

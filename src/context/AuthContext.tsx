@@ -1,52 +1,75 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
+import { User as AppUser } from '../types';
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   isLoggedIn: boolean;
-  login: (userData: User) => void;
-  logout: () => void;
+  loading: boolean;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // --- GIẢI THÍCH VỀ useEffect VÀ SESSION PERSISTENCE ---
-  // useEffect này chạy ngay khi ứng dụng được "Mounted" (tải lên lần đầu).
-  // Nó kiểm tra trong localStorage xem có key 'user_session' không.
-  // Nếu có, nó sẽ parse dữ liệu JSON đó và cập nhật vào State của ứng dụng.
-  // Đây chính là cách web "nhớ mặt" khách: Dữ liệu trong localStorage không bị mất khi F5 trang.
   useEffect(() => {
-    const savedSession = localStorage.getItem('user_session');
-    if (savedSession) {
-      try {
-        const userData = JSON.parse(savedSession);
-        setUser(userData);
-        setIsLoggedIn(true);
-      } catch (error) {
-        console.error('Lỗi khi đọc session:', error);
-        localStorage.removeItem('user_session');
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // Fetch additional user info from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              fullName: data.fullName || firebaseUser.displayName || 'User',
+            });
+          } else {
+            // Fallback to basic info if doc doesn't exist
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              fullName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            fullName: firebaseUser.displayName || 'User',
+          });
+        }
+      } else {
+        setUser(null);
       }
-    }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const login = (userData: User) => {
-    setUser(userData);
-    setIsLoggedIn(true);
-    localStorage.setItem('user_session', JSON.stringify(userData));
-  };
-
-  const logout = () => {
-    setUser(null);
-    setIsLoggedIn(false);
-    localStorage.removeItem('user_session');
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoggedIn: !!user, 
+      loading,
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

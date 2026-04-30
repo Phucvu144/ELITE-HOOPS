@@ -135,44 +135,54 @@ const CartModal = ({ isOpen, onClose, items, onRemove, onUpdateQuantity, onOpenA
     }
 
     try {
-      console.log("Đang gửi đơn hàng tới Apps Script...");
+      console.log("Đang lưu đơn hàng tới Firestore...");
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
       
-      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxv_hhtJCCo0cmIa49Uwh6fhsJRJDTy7sR7JaGlW90d1IJ0b1aFBasJFiRHncS7N4dmBQ/exec";
-      console.log("URL mục tiêu:", WEB_APP_URL);
+      const orderToSave = {
+        orderId: newOrderId,
+        fullName: formData.fullName,
+        email: formData.email.toLowerCase().trim(),
+        phone: formData.phone,
+        address: formData.address,
+        cartDetails: orderData.cartDetails,
+        totalAmount: orderData.totalAmount,
+        status: 'pending',
+        userId: user?.id || null,
+        createdAt: serverTimestamp()
+      };
 
-      // Chuyển đổi dữ liệu sang URLSearchParams để gửi dạng form-urlencoded
-      const params = new URLSearchParams();
-      params.append("action", "checkout");
-      params.append("fullName", orderData.fullName);
-      params.append("email", orderData.email);
-      params.append("phone", orderData.phone);
-      params.append("address", orderData.address);
-      params.append("cartDetails", orderData.cartDetails);
-      params.append("totalAmount", orderData.totalAmount.toString());
-      params.append("orderId", orderData.orderId);
+      await setDoc(doc(db, 'orders', newOrderId), orderToSave);
+      console.log("Yêu cầu đã được lưu vào Firestore.");
 
-      // Gửi API với định dạng application/x-www-form-urlencoded
-      await fetch(WEB_APP_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-      });
-
-      // Lưu ý: Với mode 'no-cors', chúng ta không đọc được response.ok hay response.json()
-      // Nhưng nếu fetch không nhảy vào catch, nghĩa là request đã được gửi đi thành công.
-      console.log("Yêu cầu đã được gửi đi thành công (no-cors mode).");
-
-      // Giả lập đợi một chút để tạo cảm giác xử lý
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Đồng bộ tới SQL Server
+      try {
+        const syncResponse = await fetch('/api/sync-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: newOrderId,
+            fullName: formData.fullName,
+            email: formData.email.toLowerCase().trim(),
+            phone: formData.phone,
+            address: formData.address,
+            cartDetails: orderData.cartDetails,
+            totalAmount: orderData.totalAmount
+          })
+        });
+        const syncResult = await syncResponse.json();
+        if (!syncResult.success) {
+          console.warn("SQL Order Sync warning:", syncResult.message);
+        }
+      } catch (syncErr) {
+        console.error("SQL Order Sync error:", syncErr);
+      }
 
       setView('success');
       clearCart(); 
     } catch (error) {
-      console.error("Lỗi kết nối khi gửi đơn hàng:", error);
-      alert("Không thể kết nối với hệ thống xử lý đơn hàng. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.");
+      console.error("Lỗi khi gửi đơn hàng:", error);
+      alert("Có lỗi xảy ra khi xử lý đơn hàng. Vui lòng thử lại sau.");
     } finally {
       setIsSubmitting(false);
     }
